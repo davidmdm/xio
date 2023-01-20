@@ -13,11 +13,24 @@ var errInvalidWrite = errors.New("invalid write result")
 
 // Copy attempts to copy all of src into dst. It uses a goroutine to do so, and will exit early if the context
 // given to it is canceled. When the error is due to a context cancelation or timeout the number of bytes written
-// is the number of bytes written at the time of cancelation. The goroutine will exit at the end of the current read/write cycle, however it
-// is possible that a write is still in effect and that the total number of bytes written will be greater than reported.
-func Copy(ctx context.Context, dst io.Writer, src io.Reader) (int, error) {
-	var n atomic.Int64
+// is the number of bytes written at the time of cancelation unless the option WaitForLastWrite is present.
+// The goroutine will exit at the end of the current read/write cycle, however itis possible that a write is
+// still in effect and that the total number of bytes written will be greater than reported.
+func Copy(ctx context.Context, dst io.Writer, src io.Reader, opts ...CopyOption) (n int, err error) {
+	var options copyoptions
+	for _, apply := range opts {
+		apply(&options)
+	}
+
+	var atomicN atomic.Int64
 	errCh := make(chan error, 1)
+
+	if options.WaitForLastWrite {
+		defer func() {
+			<-errCh
+			n = int(atomicN.Load())
+		}()
+	}
 
 	go func() {
 		defer close(errCh)
@@ -32,7 +45,7 @@ func Copy(ctx context.Context, dst io.Writer, src io.Reader) (int, error) {
 					return
 				}
 
-				n.Add(int64(wn))
+				atomicN.Add(int64(wn))
 
 				if wErr != nil {
 					errCh <- wErr
@@ -55,14 +68,14 @@ func Copy(ctx context.Context, dst io.Writer, src io.Reader) (int, error) {
 
 	select {
 	case <-ctx.Done():
-		return int(n.Load()), ctx.Err()
+		return int(atomicN.Load()), ctx.Err()
 	case err := <-errCh:
-		return int(n.Load()), err
+		return int(atomicN.Load()), err
 	}
 }
 
 func ReadAll(ctx context.Context, r io.Reader) ([]byte, error) {
 	var w bytes.Buffer
-	_, err := Copy(ctx, &w, r)
+	_, err := Copy(ctx, &w, r, WaitForLastWrite(true))
 	return w.Bytes(), err
 }
