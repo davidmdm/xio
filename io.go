@@ -27,7 +27,9 @@ func Copy(ctx context.Context, dst io.Writer, src io.Reader, opts ...CopyOption)
 
 	if options.WaitForLastWrite {
 		defer func() {
-			<-errCh
+			if endErr := <-errCh; endErr != nil {
+				err = endErr
+			}
 			n = int(atomicN.Load())
 		}()
 	}
