@@ -17,7 +17,10 @@ var errInvalidWrite = errors.New("invalid write result")
 // The goroutine will exit at the end of the current read/write cycle, however itis possible that a write is
 // still in effect and that the total number of bytes written will be greater than reported.
 func Copy(ctx context.Context, dst io.Writer, src io.Reader, opts ...CopyOption) (n int, err error) {
-	var options copyoptions
+	options := copyoptions{
+		WaitForLastWrite: false,
+		bufferSize:       4096,
+	}
 	for _, apply := range opts {
 		apply(&options)
 	}
@@ -37,7 +40,7 @@ func Copy(ctx context.Context, dst io.Writer, src io.Reader, opts ...CopyOption)
 	go func() {
 		defer close(errCh)
 
-		buf := make([]byte, 4096)
+		buf := make([]byte, options.bufferSize)
 		for {
 			rn, rErr := src.Read(buf)
 			if rn > 0 {
@@ -76,8 +79,8 @@ func Copy(ctx context.Context, dst io.Writer, src io.Reader, opts ...CopyOption)
 	}
 }
 
-func ReadAll(ctx context.Context, r io.Reader) ([]byte, error) {
-	var w bytes.Buffer
-	_, err := Copy(ctx, &w, r, WaitForLastWrite(true))
-	return w.Bytes(), err
+func ReadAll(ctx context.Context, src io.Reader) ([]byte, error) {
+	var dst bytes.Buffer
+	_, err := Copy(ctx, &dst, src, WaitForLastWrite(true))
+	return dst.Bytes(), err
 }
