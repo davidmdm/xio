@@ -1,6 +1,7 @@
 package xio
 
 import (
+	"bytes"
 	"context"
 	"errors"
 	"io"
@@ -224,6 +225,45 @@ func TestCopyN(t *testing.T) {
 			t.Fatalf("expected bytes to be read like so %v but got %v", expectedBytesRead, bytesRead)
 		}
 	})
+
+	t.Run("read less data than N", func(t *testing.T) {
+		n, err := CopyN(
+			context.Background(),
+			WriterFunc(func(b []byte) (int, error) { return len(b), nil }),
+			ReaderFunc(func(b []byte) (int, error) { return 50, io.EOF }),
+			100,
+		)
+
+		if err != io.EOF {
+			t.Fatalf("expected err to be %#q but got %#q", io.EOF, err)
+		}
+		if n != 50 {
+			t.Fatalf("expected n to be 50 but got %d", n)
+		}
+	})
+
+	t.Run("N of zero should not trigger any reads", func(t *testing.T) {
+		// Will panic if src Read is called
+		n, err := CopyN(context.Background(), nil, nil, 0)
+		if err != nil {
+			t.Fatalf("expected err to be nil but got %#q", err)
+		}
+		if n != 0 {
+			t.Fatalf("expected n to be 0 but got %d", n)
+		}
+	})
+}
+
+func TestReadAll(t *testing.T) {
+	expected := []byte(`Hello world`)
+
+	actual, err := ReadAll(context.Background(), bytes.NewReader(expected))
+	if err != nil {
+		t.Fatalf("expectd err to be nil but got %#q", err)
+	}
+	if !reflect.DeepEqual(expected, actual) {
+		t.Fatalf("expect content to be %q but got %q", expected, actual)
+	}
 }
 
 type ReaderFunc func([]byte) (int, error)
