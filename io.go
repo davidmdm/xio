@@ -19,6 +19,11 @@ var errInvalidWrite = errors.New("invalid write result")
 // write goroutine exits. Use WaitForLastWrite(false) if src or dst is slow and you do not care about the total
 // amount of bytes written to dst if a cancelation occurs.
 func Copy(ctx context.Context, dst io.Writer, src io.Reader, opts ...CopyOption) (n int64, err error) {
+	err = ctx.Err()
+	if err != nil {
+		return
+	}
+
 	options := copyoptions{
 		WaitForLastWrite: true,
 		bufferSize:       32 * 1024, // same as io/io.go
