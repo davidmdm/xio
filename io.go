@@ -12,14 +12,16 @@ import (
 var errInvalidWrite = errors.New("invalid write result")
 
 // Copy attempts to copy all of src into dst. It uses a goroutine to do so, and will exit early if the context
-// given to it is canceled. When the error is due to a context cancelation or timeout the number of bytes written
-// is the number of bytes written at the time of cancelation unless the option WaitForLastWrite is present.
-// The goroutine will exit at the end of the current read/write cycle, however itis possible that a write is
-// still in effect and that the total number of bytes written will be greater than reported.
-func Copy(ctx context.Context, dst io.Writer, src io.Reader, opts ...CopyOption) (n int, err error) {
+// given to it is canceled. If the context is canceled, Copy will wait for the current read/write cycle to end
+// then exit unless explicitly passed the option "WaitForLastWrite(false)". If WaitForLastWrite is false, Copy
+// will exit as soon as the context is canceled and the value of n will reflect the number of byte written to dst
+// at the time of the cancelation and but is not guaranteed to be the total bytes written to dst by the time to
+// write goroutine exits. Use WaitForLastWrite(false) if src or dst is slow and you do not care about the total
+// amount of bytes written to dst if a cancelation occurs.
+func Copy(ctx context.Context, dst io.Writer, src io.Reader, opts ...CopyOption) (n int64, err error) {
 	options := copyoptions{
-		WaitForLastWrite: false,
-		bufferSize:       4096,
+		WaitForLastWrite: true,
+		bufferSize:       32 * 1024, // same as io/io.go
 	}
 	for _, apply := range opts {
 		apply(&options)
@@ -33,14 +35,22 @@ func Copy(ctx context.Context, dst io.Writer, src io.Reader, opts ...CopyOption)
 			if endErr := <-errCh; endErr != nil {
 				err = endErr
 			}
-			n = int(atomicN.Load())
+			n = atomicN.Load()
 		}()
 	}
 
+	if lr, ok := src.(*io.LimitedReader); ok && int64(options.bufferSize) > lr.N {
+		if lr.N < 1 {
+			options.bufferSize = 1
+		} else {
+			options.bufferSize = int(lr.N)
+		}
+	}
+
+	buf := make([]byte, options.bufferSize)
+
 	go func() {
 		defer close(errCh)
-
-		buf := make([]byte, options.bufferSize)
 		for {
 			rn, rErr := src.Read(buf)
 			if rn > 0 {
@@ -73,12 +83,26 @@ func Copy(ctx context.Context, dst io.Writer, src io.Reader, opts ...CopyOption)
 
 	select {
 	case <-ctx.Done():
-		return int(atomicN.Load()), ctx.Err()
+		return atomicN.Load(), ctx.Err()
 	case err := <-errCh:
-		return int(atomicN.Load()), err
+		return atomicN.Load(), err
 	}
 }
 
+// CopyN behaves like io.CopyN but is cancelable via a context. The same options as Copy can be passed to CopyN.
+func CopyN(ctx context.Context, dst io.Writer, src io.Reader, n int64, opts ...CopyOption) (written int64, err error) {
+	written, err = Copy(ctx, dst, io.LimitReader(src, n), opts...)
+	if written == n {
+		return n, nil
+	}
+	if written < n && err == nil {
+		// src stopped early; must have been EOF.
+		err = io.EOF
+	}
+	return
+}
+
+// ReadAll works like io.Readall but is cancelable via a context.
 func ReadAll(ctx context.Context, src io.Reader) ([]byte, error) {
 	var dst bytes.Buffer
 	_, err := Copy(ctx, &dst, src, WaitForLastWrite(true))

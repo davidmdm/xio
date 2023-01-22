@@ -8,7 +8,7 @@ import (
 )
 
 func TestCopy(t *testing.T) {
-	t.Run("copy with context cancelation", func(t *testing.T) {
+	t.Run("copy with context cancelation and do not wait", func(t *testing.T) {
 		ctx, cancel := context.WithCancel(context.Background())
 
 		unblockWrite := make(chan struct{})
@@ -26,6 +26,7 @@ func TestCopy(t *testing.T) {
 			ReaderFunc(func(b []byte) (int, error) {
 				return len(b), nil
 			}),
+			WaitForLastWrite(false),
 		)
 
 		if !errors.Is(err, context.Canceled) {
@@ -40,8 +41,8 @@ func TestCopy(t *testing.T) {
 
 		time.Sleep(time.Millisecond)
 
-		if writeTotal != 4096 {
-			t.Fatalf("expected write total to be 4096 but got %d", writeTotal)
+		if writeTotal != 32768 {
+			t.Fatalf("expected write total to be 32768 but got %d", writeTotal)
 		}
 	})
 
@@ -69,8 +70,8 @@ func TestCopy(t *testing.T) {
 			t.Fatalf("expected error to be context canceled but got %v", err)
 		}
 
-		if n != 4096 {
-			t.Fatalf("expected n to be 4096 but got %d", n)
+		if n != 32768 {
+			t.Fatalf("expected n to be 32768 but got %d", n)
 		}
 	})
 }
