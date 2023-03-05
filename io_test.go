@@ -15,12 +15,14 @@ func TestCopy(t *testing.T) {
 		ctx, cancel := context.WithCancel(context.Background())
 
 		unblockWrite := make(chan struct{})
+		writeDone := make(chan struct{})
 
 		var writeTotal int
 
 		n, err := Copy(
 			ctx,
 			WriterFunc(func(b []byte) (int, error) {
+				defer close(writeDone)
 				cancel()
 				<-unblockWrite
 				writeTotal += len(b)
@@ -42,7 +44,7 @@ func TestCopy(t *testing.T) {
 
 		close(unblockWrite)
 
-		time.Sleep(time.Millisecond)
+		<-writeDone
 
 		if writeTotal != 32768 {
 			t.Fatalf("expected write total to be 32768 but got %d", writeTotal)
