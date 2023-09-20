@@ -5,9 +5,11 @@ Package `xio` is a context-aware port of common io operations. This allows long 
 ### API
 
 ```go
-xio.Copy(ctx, dst, src)
-xio.CopyN(ctx, dst, src, n)
-xio.ReadAll(ctx, src)
+xio.Copy(context.Context, io.Writer, io.Reader)
+
+xio.CopyN(context.Context, io.Writer, io.Reader, int64)
+
+xio.ReadAll(context.Context, io.Reader)
 ```
 
 The copy functions accept `xio.CopyOption` variadic function arguments. They are:
