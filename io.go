@@ -13,10 +13,10 @@ var errInvalidWrite = errors.New("invalid write result")
 
 // Copy attempts to copy all of src into dst. It uses a goroutine to do so, and will exit early if the context
 // given to it is canceled. If the context is canceled, Copy will wait for the current read/write cycle to end
-// then exit unless explicitly passed the option "WaitForLastWrite(false)". If WaitForLastWrite is false, Copy
+// then exit unless explicitly passed the option "WaitForLastOp(false)". If WaitForLastOp is false, Copy
 // will exit as soon as the context is canceled and the value of n will reflect the number of byte written to dst
 // at the time of the cancelation and but is not guaranteed to be the total bytes written to dst by the time to
-// write goroutine exits. Use WaitForLastWrite(false) if src or dst is slow and you do not care about the total
+// write goroutine exits. Use WaitForLastOp(false) if src or dst is slow and you do not care about the total
 // amount of bytes written to dst if a cancelation occurs.
 func Copy(ctx context.Context, dst io.Writer, src io.Reader, opts ...CopyOption) (n int64, err error) {
 	err = ctx.Err()
@@ -25,8 +25,8 @@ func Copy(ctx context.Context, dst io.Writer, src io.Reader, opts ...CopyOption)
 	}
 
 	options := copyoptions{
-		WaitForLastWrite: true,
-		bufferSize:       32 * 1024, // same as io/io.go
+		WaitForLastOp: true,
+		bufferSize:    32 * 1024, // same as io/io.go
 	}
 	for _, apply := range opts {
 		apply(&options)
@@ -35,7 +35,7 @@ func Copy(ctx context.Context, dst io.Writer, src io.Reader, opts ...CopyOption)
 	var atomicN atomic.Int64
 	errCh := make(chan error, 1)
 
-	if options.WaitForLastWrite {
+	if options.WaitForLastOp {
 		defer func() {
 			if endErr := <-errCh; endErr != nil {
 				err = endErr
@@ -110,6 +110,6 @@ func CopyN(ctx context.Context, dst io.Writer, src io.Reader, n int64, opts ...C
 // ReadAll works like io.Readall but is cancelable via a context.
 func ReadAll(ctx context.Context, src io.Reader) ([]byte, error) {
 	var dst bytes.Buffer
-	_, err := Copy(ctx, &dst, src, WaitForLastWrite(true))
+	_, err := Copy(ctx, &dst, src, WaitForLastOp(true))
 	return dst.Bytes(), err
 }

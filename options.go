@@ -1,15 +1,15 @@
 package xio
 
 type copyoptions struct {
-	WaitForLastWrite bool
-	bufferSize       int
+	WaitForLastOp bool
+	bufferSize    int
 }
 
 type CopyOption func(*copyoptions)
 
-func WaitForLastWrite(value bool) CopyOption {
+func WaitForLastOp(value bool) CopyOption {
 	return func(c *copyoptions) {
-		c.WaitForLastWrite = value
+		c.WaitForLastOp = value
 	}
 }
 

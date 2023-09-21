@@ -31,7 +31,7 @@ func TestCopy(t *testing.T) {
 			ReaderFunc(func(b []byte) (int, error) {
 				return len(b), nil
 			}),
-			WaitForLastWrite(false),
+			WaitForLastOp(false),
 		)
 
 		if !errors.Is(err, context.Canceled) {
@@ -68,7 +68,7 @@ func TestCopy(t *testing.T) {
 			ReaderFunc(func(b []byte) (int, error) {
 				return len(b), nil
 			}),
-			WaitForLastWrite(true),
+			WaitForLastOp(true),
 		)
 
 		if !errors.Is(err, context.Canceled) {

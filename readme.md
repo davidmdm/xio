@@ -15,7 +15,7 @@ xio.ReadAll(context.Context, io.Reader)
 The copy functions accept `xio.CopyOption` variadic function arguments. They are:
 
 - `func BufferSize(size int) CopyOption` -> Allows us to change the size of the internal buffer used for copying (default 32Kb same as standard `io`)
-- `WaitForLastWrite(value bool) CopyOption` -> Fundamentally read and write operations are synchronous, and when the context is canceled `xio` waits for any ongoing write/read to finish before returning. This allows `xio` to return the correct amount of bytes copied. When false, Copy returns immediately, but the bytes copied total may be inaccurate. Default `true`.
+- `WaitForLastOp(value bool) CopyOption` -> Fundamentally read and write operations are synchronous, and when the context is canceled `xio` waits for any ongoing write/read to finish before returning. This allows `xio` to return the correct amount of bytes copied. When false, Copy returns immediately, but the bytes copied total may be inaccurate. Default `true`.
 
 ## Example
 
