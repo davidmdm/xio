@@ -1,3 +1,5 @@
 .vscode
 cmd
 dev-scripts
+
+*.out

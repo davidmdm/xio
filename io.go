@@ -26,6 +26,7 @@ func Copy(ctx context.Context, dst io.Writer, src io.Reader, opts ...CopyOption)
 
 	options := copyoptions{
 		WaitForLastOp: true,
+		buffer:        nil,
 		bufferSize:    32 * 1024, // same as io/io.go
 	}
 	for _, apply := range opts {
@@ -52,7 +53,10 @@ func Copy(ctx context.Context, dst io.Writer, src io.Reader, opts ...CopyOption)
 		}
 	}
 
-	buf := make([]byte, options.bufferSize)
+	buf := options.buffer
+	if buf == nil {
+		buf = make([]byte, options.bufferSize)
+	}
 
 	go func() {
 		defer close(errCh)
@@ -92,6 +96,13 @@ func Copy(ctx context.Context, dst io.Writer, src io.Reader, opts ...CopyOption)
 	case err := <-errCh:
 		return atomicN.Load(), err
 	}
+}
+
+// CopyBuffer is like copy but allows you to specify the buffer to be used for copying. This is useful for reusing the same buffer
+// accross different copy operations. This method exists to correspond to the standard io.CopyBuffer func, however within xio it is simply
+// a convenience for the Buffer option: xio.Copy(ctx, dst, src, xio.Buffer(buffer))
+func CopyBuffer(ctx context.Context, dst io.Writer, src io.Reader, buffer []byte, opts ...CopyOption) (int64, error) {
+	return Copy(ctx, dst, src, append(opts, Buffer(buffer))...)
 }
 
 // CopyN behaves like io.CopyN but is cancelable via a context. The same options as Copy can be passed to CopyN.

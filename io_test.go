@@ -256,6 +256,35 @@ func TestCopyN(t *testing.T) {
 	})
 }
 
+func TestCopyBuffer(t *testing.T) {
+	buffer := make([]byte, 15)
+
+	n, err := CopyBuffer(
+		context.Background(),
+		WriterFunc(func(b []byte) (int, error) {
+			return len(b), nil
+		}),
+		ReaderFunc(func(b []byte) (int, error) {
+			for i, v := range []byte("hello world") {
+				b[i] = v
+			}
+			return 11, io.EOF
+		}),
+		buffer,
+	)
+	if err != nil {
+		t.Fatalf("expected no error but got %v", err)
+	}
+
+	if n != 11 {
+		t.Fatalf("expected 11 bytes to be read but got: %d", n)
+	}
+
+	if substring := string(buffer[:11]); substring != "hello world" {
+		t.Fatalf("expected hello world but got: %s", substring)
+	}
+}
+
 func TestReadAll(t *testing.T) {
 	expected := []byte(`Hello world`)
 
