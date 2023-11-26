@@ -1,3 +1,7 @@
+## Moved away
+
+This repository has been moved to https://github.com/davidmdm/x/xio
+
 ## XIO
 
 Package `xio` is a context-aware port of common io operations. This allows long running operations to be canceled.
